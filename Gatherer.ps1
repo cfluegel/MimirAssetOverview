@@ -11,20 +11,20 @@
     $AllResults += Get-GPUInfo
     $AllResults += Get-VolumeInfo
     $AllResults += Get-Users
-    
+
     return $AllResults | ConvertTo-Json
-  
+
 }
 
 function Get-CPUInfo {
     $returnObject = @{}
 
-    $_CmdOutput = Get-WmiObject Win32_Processor 
+    $_CmdOutput = Get-WmiObject Win32_Processor
     $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
 
     if ($_CmdOutputRows.Count -ge 2) {
         $_CmdOutput | foreach {
-            $DeviceID = $_.DeviceID        
+            $DeviceID = $_.DeviceID
             $returnObject.$DeviceID = $_.Name
         }
     } else {
@@ -47,21 +47,21 @@ function Get-GPUInfo {
 }
 
 function Get-VolumeInfo {
-    $returnObject = @{} 
-        
+    $returnObject = @{}
+
     $_CmdOutput = Get-WmiObject Win32_LogicalDisk
     $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
 
     if ($_CmdOutputRows.Count -ge 2) {
         $_CmdOutput | foreach {
             $DriveName = "Drive"+ $_.DeviceID.Trim(":")
-            $returnObject.$DriveName = @{} 
+            $returnObject.$DriveName = @{}
             $returnObject.$DriveName.VolumeName = $_.VolumeName
             $returnObject.$DriveName.Size = $_.Size
-            $returnObject.$DriveName.FreeSpace = $_.FreeSpace 
+            $returnObject.$DriveName.FreeSpace = $_.FreeSpace
         }
     } else {
-        $returnObject[$_CmdOutput.DeviceID] = @{ 
+        $returnObject[$_CmdOutput.DeviceID] = @{
                 VolumeName = $_CmdOutput.VolumeName
                 Size = $_CmdOutput.Size
                 FreeSpace = $_CmdOutput.FreeSpace
@@ -80,12 +80,12 @@ function Get-Users {
     if ($_CmdOutputRows.Count -ge 2) {
         $_CmdOutput | foreach {
             $Name = $_.Name
-            $returnObject.$Name = @{} 
-            $returnObject.$Name.SID = $_.SID 
- 
+            $returnObject.$Name = @{}
+            $returnObject.$Name.SID = $_.SID
+
         }
     } else {
-        $returnObject[$_CmdOutput.Caption] = @{ 
+        $returnObject[$_CmdOutput.Caption] = @{
                 SID = $_CmdOutput.SID
         }
     }
