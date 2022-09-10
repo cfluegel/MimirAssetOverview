@@ -4,6 +4,7 @@
     )
 
     $ComputerName = $env:COMPUTERNAME
+    $UUID = (get-wmiobject Win32_ComputerSystemProduct).UUID
 
     $AllResults = @()
 
@@ -11,6 +12,9 @@
     $AllResults += Get-GPUInfo
     $AllResults += Get-VolumeInfo
     $AllResults += Get-Users
+    $AllResults += Get_NetworkAdapter
+    $AllResults += Get_NetworkAdapterIPConfiguration
+
 
     return $AllResults | ConvertTo-Json
 
@@ -24,7 +28,7 @@ function Get-CPUInfo {
 
     if ($_CmdOutputRows.Count -ge 2) {
         $_CmdOutput | foreach {
-            $DeviceID = $_.DeviceID
+            $DeviceID = $_.DeviceID.ToString()
             $returnObject.$DeviceID = $_.Name
         }
     } else {
@@ -62,9 +66,9 @@ function Get-VolumeInfo {
         }
     } else {
         $returnObject[$_CmdOutput.DeviceID] = @{
-                VolumeName = $_CmdOutput.VolumeName
-                Size = $_CmdOutput.Size
-                FreeSpace = $_CmdOutput.FreeSpace
+            VolumeName = $_CmdOutput.VolumeName
+            Size = $_CmdOutput.Size
+            FreeSpace = $_CmdOutput.FreeSpace
         }
     }
 
@@ -86,10 +90,68 @@ function Get-Users {
         }
     } else {
         $returnObject[$_CmdOutput.Caption] = @{
-                SID = $_CmdOutput.SID
+            SID = $_CmdOutput.SID
         }
     }
     return $returnObject
 }
 
+function Get_NetworkAdapter {
+    $returnObject = @{}
+
+    $_CmdOutput = Get-WmiObject -Class win32_networkadapter  | Where-Object { $_.AdapterType -eq "Ethernet 802.3" }  |  select MACAddress,DeviceID,Name
+    $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
+
+    if ($_CmdOutputRows.Count -ge 2) {
+        $_CmdOutput | foreach {
+            $DeviceID = $_.DeviceID
+            $returnObject.$DeviceID = @{}
+            $returnObject.$DeviceID.Name = $_.Name
+            $returnObject.$DeviceID.MAC = $_.MACAddress
+
+        }
+    } else {
+        $Index = $_CmdOutput.DeviceID.ToString()
+        $returnObject[$Index] = @{
+            Name = $_CmdOutput.Name
+            MAC = $_CmdOutput.MACAddress
+        }
+    }
+    return $returnObject
+    
+}
+
+function Get_NetworkAdapterIPConfiguration {
+    $returnObject = @{}
+
+    $_CmdOutput = Get-WmiObject -Class win32_networkadapterconfiguration   | select Index,IPAddress  | where { $_.IPAddress -notlike '' }
+    $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
+
+    if ($_CmdOutputRows.Count -ge 2) {
+        $_CmdOutput | foreach {
+            $DeviceID = $_.Index.toString()
+            $returnObject.$DeviceID = @{}
+            $returnObject.$DeviceID.IPAddress = $_.IPAddress
+        }
+    } else {
+        $Index=$_CmdOutput.Index.tostring()
+
+        $returnObject[$Index] = @{}
+        $returnObject[$Index].IPAddress = @()
+        
+        $_CmdOutput.IPAddress | foreach {
+            $returnObject.$Index.IPAddress += $_ 
+        }
+
+
+
+    }
+    return $returnObject
+    
+}
+
+
 Get-Info
+
+
+
