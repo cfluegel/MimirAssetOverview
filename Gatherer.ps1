@@ -3,36 +3,44 @@
         [ValidateNotNullOrEmpty()][string]$InfoSource = "All"
     )
 
-    $ComputerName = $env:COMPUTERNAME
-    $UUID = (get-wmiobject Win32_ComputerSystemProduct).UUID
+    $UUID = (get-wmiobject Win32_ComputerSystemProduct).UUID.ToString()
 
     $AllResults = @()
 
-    $AllResults += Get-CPUInfo
+    $AllResults += Get-SystemInformation
+    $AllResults += Get-CPUInfo 
     $AllResults += Get-GPUInfo
     $AllResults += Get-VolumeInfo
     $AllResults += Get-Users
-    $AllResults += Get_NetworkAdapter
-    $AllResults += Get_NetworkAdapterIPConfiguration
+    $AllResults += Get-NetworkAdapter
+    $AllResults += Get-NetworkAdapterIPConfiguration
 
+    $returnObject = @{}
+    $returnObject[$UUID] = $AllResults
 
-    return $AllResults | ConvertTo-Json
+    return $returnObject | ConvertTo-Json -Depth 10 
 
 }
 
 function Get-CPUInfo {
     $returnObject = @{}
 
-    $_CmdOutput = Get-WmiObject Win32_Processor
+    $_CmdOutput = Get-WmiObject Win32_Processor | select * 
     $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
 
     if ($_CmdOutputRows.Count -ge 2) {
         $_CmdOutput | foreach {
             $DeviceID = $_.DeviceID.ToString()
             $returnObject.$DeviceID = $_.Name
+            $returnObject.$DeviceID.NoOfCores = $_.NumberOfCores
+            $returnObject.$DeviceID.NoOfLogicalProc = $_.NumberOfLogicalProcessors
         }
     } else {
-        $returnObject[$_CmdOutput.DeviceID] = $_CmdOutput.Name
+        $DeviceID = $_CmdOutput.DeviceID.ToString()
+        $returnObject.$DeviceID = @{} 
+        $returnObject.$DeviceID.Name = $_CmdOutput.Name
+        $returnObject.$DeviceID.NoOfCores = $_CmdOutput.NumberOfCores
+        $returnObject.$DeviceID.NoOfLogicalProc = $_CmdOutput.NumberOfLogicalProcessors
     }
 
     return $returnObject
@@ -78,7 +86,7 @@ function Get-VolumeInfo {
 function Get-Users {
     $returnObject = @{}
 
-    $_CmdOutput = Get-WmiObject Win32_UserAccount
+    $_CmdOutput = Get-WmiObject Win32_UserAccount | Select-Object *
     $_CmdOutputRows = $_CmdOutput | Measure-Object | Select-Object Count
 
     if ($_CmdOutputRows.Count -ge 2) {
@@ -86,17 +94,26 @@ function Get-Users {
             $Name = $_.Name
             $returnObject.$Name = @{}
             $returnObject.$Name.SID = $_.SID
+            $returnObject.$Name.Disabled = $_.Disabled
+            $returnObject.$Name.LocalAccount = $_.LocalAccount
+            $returnObject.$Name.PasswordExpires = $_.PasswordExpires
+            $returnObject.$Name.Domain = $_.Domain
 
         }
     } else {
         $returnObject[$_CmdOutput.Caption] = @{
             SID = $_CmdOutput.SID
+            Disabled = $_CmdOutput.Disabled
+            LocalAccount = $_CmdOutput.LocalAccount
+            PasswordExpires = $_CmdOutput.PasswordExpires
+            Domain = $_CmdOutput.Domain
+
         }
     }
     return $returnObject
 }
 
-function Get_NetworkAdapter {
+function Get-NetworkAdapter {
     $returnObject = @{}
 
     $_CmdOutput = Get-WmiObject -Class win32_networkadapter  | Where-Object { $_.AdapterType -eq "Ethernet 802.3" }  |  select MACAddress,DeviceID,Name
@@ -121,7 +138,7 @@ function Get_NetworkAdapter {
     
 }
 
-function Get_NetworkAdapterIPConfiguration {
+function Get-NetworkAdapterIPConfiguration {
     $returnObject = @{}
 
     $_CmdOutput = Get-WmiObject -Class win32_networkadapterconfiguration   | select Index,IPAddress  | where { $_.IPAddress -notlike '' }
@@ -150,6 +167,18 @@ function Get_NetworkAdapterIPConfiguration {
     
 }
 
+
+function Get-SystemInformation {
+    $PCSerialNumber = (get-wmiobject Win32_BIOS).SerialNumber.ToString()
+    $SystemSKUNumber = (get-wmiobject Win32_ComputerSystem).SystemSKUNumber.ToString()
+
+    $returnObject = @{}
+    $returnObject["ComputerName"] = $env:COMPUTERNAME
+    $returnObject["BIOSSerialNumber"] = $PCSerialNumber
+    $returnObject["SystemSKUNumber"] = $SystemSKUNumber
+
+    return $returnObject
+}
 
 Get-Info
 
